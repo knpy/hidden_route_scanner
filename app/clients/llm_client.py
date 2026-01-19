@@ -5,6 +5,7 @@ Grok API（または OpenAI）との通信を処理
 import os
 import httpx
 from typing import Optional
+from app.models.schemas import RawFlightData
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -27,7 +28,8 @@ class LLMClient:
         self, 
         departure: str, 
         arrival: str, 
-        date: Optional[str] = None
+        date: Optional[str] = None,
+        raw_data: Optional[RawFlightData] = None
     ) -> dict:
         """
         フライトルートを分析して隠れた格安オプションを提案
@@ -36,6 +38,7 @@ class LLMClient:
             departure: 出発地
             arrival: 到着地
             date: 日程（オプション）
+            raw_data: 外部APIから取得した実フライトデータ
             
         Returns:
             分析結果の辞書
@@ -50,11 +53,11 @@ class LLMClient:
         
         # Grok API を優先的に使用
         if self.grok_api_key:
-            return await self._call_grok_api(departure, arrival, date)
+            return await self._call_grok_api(departure, arrival, date, raw_data)
         
         # OpenAI をフォールバックとして使用
         if self.openai_api_key:
-            return await self._call_openai_api(departure, arrival, date)
+            return await self._call_openai_api(departure, arrival, date, raw_data)
         
         return self._mock_analysis(route_description)
     
@@ -90,7 +93,8 @@ class LLMClient:
         self, 
         departure: str, 
         arrival: str, 
-        date: Optional[str]
+        date: Optional[str],
+        raw_data: Optional[RawFlightData] = None
     ) -> dict:
         """Grok API を呼び出し"""
         url = "https://api.x.ai/v1/chat/completions"
@@ -100,7 +104,8 @@ class LLMClient:
         }
         
         system_prompt = (
-            "あなたは航空券の専門家です。ユーザーのルートに対して、隠れた格安オプションを提案してください。"
+            "あなたは航空券の専門家です。ユーザーのルートと提供された実際のフライトデータに基づいて、"
+            "隠れた格安オプションや旅行テクニックを提案してください。"
             "特に以下の手法を検討してください：\n"
             "1. Hidden City チケット (最終目的地を越えた航空券を予約し、経由地で降りる)\n"
             "2. 複数航空券の組み合わせ (Self-transfer)\n"
@@ -118,6 +123,11 @@ class LLMClient:
         user_prompt = f"出発地: {departure}, 目的地: {arrival}"
         if date:
             user_prompt += f", 日程: {date}"
+        
+        if raw_data and raw_data.offers:
+            user_prompt += "\n\n以下の実際のフライトデータを分析の参考にしてください：\n"
+            for offer in raw_data.offers:
+                user_prompt += f"- {offer.airline} ({offer.flight_number}): {offer.departure_time} -> {offer.arrival_time}, 価格: {offer.price} {offer.currency}\n"
         
         payload = {
             "model": "grok-beta",
@@ -146,7 +156,8 @@ class LLMClient:
         self, 
         departure: str, 
         arrival: str, 
-        date: Optional[str]
+        date: Optional[str],
+        raw_data: Optional[RawFlightData] = None
     ) -> dict:
         """OpenAI API を呼び出し"""
         # フォールバック用。必要に応じて実装
