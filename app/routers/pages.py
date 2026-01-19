@@ -57,17 +57,21 @@ async def analyze_flight(
         # サービス層で分析を実行
         result = await flight_service.analyze_route(departure_code, arrival_code, date)
         
-        # モックモードの場合の通知（任意）
-        warning = None
+        # 代理モード（モック）の警告
+        warnings = []
         if flight_service.llm_client.use_mock:
-            warning = "現在、APIキーが未設定のためデモ用のデータ（モック）を表示しています。本物の解析を行うには .env に GROK_API_KEY を設定してください。"
+            warnings.append("Grok APIキーが未設定のため、分析はデモ用です。")
+        if flight_service.flight_data_client.use_mock:
+            warnings.append("SerpApiキーが未設定のため、フライトデータはモックです。")
+        
+        warning_msg = " ".join(warnings) if warnings else None
 
         return templates.TemplateResponse(
             "partials/result_partial.html",
             {
                 "request": request,
                 "result": result,
-                "warning": warning
+                "warning": warning_msg
             }
         )
     except Exception as e:
