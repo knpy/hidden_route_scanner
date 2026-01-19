@@ -15,14 +15,23 @@ class LLMClient:
     """LLM クライアント（Grok API / OpenAI）"""
     
     def __init__(self):
-        self.grok_api_key = os.getenv("GROK_API_KEY")
-        self.openai_api_key = os.getenv("OPENAI_API_KEY")
+        # 環境変数から取得し、前後の空白を除去
+        self.grok_api_key = (os.getenv("GROK_API_KEY") or "").strip()
+        self.openai_api_key = (os.getenv("OPENAI_API_KEY") or "").strip()
         
         # プレースホルダーのチェック
-        is_grok_valid = self.grok_api_key and "your_grok" not in self.grok_api_key
-        is_openai_valid = self.openai_api_key and "your_openai" not in self.openai_api_key
+        is_grok_valid = bool(self.grok_api_key and "your_" not in self.grok_api_key and len(self.grok_api_key) > 20)
+        is_openai_valid = bool(self.openai_api_key and "your_" not in self.openai_api_key and len(self.openai_api_key) > 20)
         
         self.use_mock = not (is_grok_valid or is_openai_valid)
+        
+        # 起動時にログ出力
+        if self.use_mock:
+            print("--- LLM Status: MOCK MODE ---")
+        elif is_grok_valid:
+            print(f"--- LLM Status: GROK MODE (Key prefix: {self.grok_api_key[:8]}...) ---")
+        else:
+            print(f"--- LLM Status: OPENAI MODE (Key prefix: {self.openai_api_key[:8]}...) ---")
         
     async def analyze_flight_route(
         self, 
@@ -33,29 +42,17 @@ class LLMClient:
     ) -> dict:
         """
         フライトルートを分析して隠れた格安オプションを提案
-        
-        Args:
-            departure: 出発地
-            arrival: 到着地
-            date: 日程（オプション）
-            raw_data: 外部APIから取得した実フライトデータ
-            
-        Returns:
-            分析結果の辞書
         """
         route_description = f"{departure} → {arrival}"
         if date:
             route_description += f" ({date})"
         
-        # モックモード（API キーがない場合）
         if self.use_mock:
             return self._mock_analysis(route_description)
         
-        # Grok API を優先的に使用
         if self.grok_api_key:
             return await self._call_grok_api(departure, arrival, date, raw_data)
         
-        # OpenAI をフォールバックとして使用
         if self.openai_api_key:
             return await self._call_openai_api(departure, arrival, date, raw_data)
         
@@ -86,7 +83,7 @@ class LLMClient:
             ],
             "avoid_tips": "🔐 **プライバシー保護**: VPN + プライベートブラウジングで検索すると、クッキーベースの価格操作を回避できます。\n\n"
                           "📅 **柔軟な日程**: 出発日を±3日ずらすだけで大幅に安くなることがあります。\n\n"
-                          "🌍 **別の空港**: 近隣の空港を検討してください（例: 成田 vs 羽田）。"
+                          "🌍 **別の空港**: 近領の空港を検討してください（例: 成田 vs 羽田）。"
         }
     
     async def _call_grok_api(
@@ -104,20 +101,8 @@ class LLMClient:
         }
         
         system_prompt = (
-            "あなたは航空券の専門家です。ユーザーのルートと提供された実際のフライトデータに基づいて、"
-            "隠れた格安オプションや旅行テクニックを提案してください。"
-            "特に以下の手法を検討してください：\n"
-            "1. Hidden City チケット (最終目的地を越えた航空券を予約し、経由地で降りる)\n"
-            "2. 複数航空券の組み合わせ (Self-transfer)\n"
-            "3. 近くの代替空港の利用\n"
-            "4. 曜日や時間帯の最適化\n\n"
-            "レスポンスは必ず以下のJSON形式で返してください：\n"
-            "{\n"
-            "  \"hidden_options\": [\n"
-            "    {\"route\": \"説明\", \"price\": \"価格\", \"save\": \"節約率%\", \"tips\": \"アドバイス\"}\n"
-            "  ],\n"
-            "  \"avoid_tips\": \"価格操作を避けるための詳細なアドバイス（マークダウン形式）\"\n"
-            "}"
+            "あなたは航空券の専門家です。提供された実フライトデータに基づいて隠れた格安ルートを提案してください。"
+            "JSON形式で返答してください。"
         )
         
         user_prompt = f"出発地: {departure}, 目的地: {arrival}"
@@ -125,12 +110,12 @@ class LLMClient:
             user_prompt += f", 日程: {date}"
         
         if raw_data and raw_data.offers:
-            user_prompt += "\n\n以下の実際のフライトデータを分析の参考にしてください：\n"
+            user_prompt += "\n\n実データ：\n"
             for offer in raw_data.offers:
-                user_prompt += f"- {offer.airline} ({offer.flight_number}): {offer.departure_time} -> {offer.arrival_time}, 価格: {offer.price} {offer.currency}\n"
+                user_prompt += f"- {offer.airline} ({offer.flight_number}): {offer.departure_time}-{offer.arrival_time}, {offer.price} {offer.currency}\n"
         
         payload = {
-            "model": "grok-beta",
+            "model": "grok-4-1-fast-reasoning",
             "messages": [
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": user_prompt}
@@ -141,15 +126,16 @@ class LLMClient:
         try:
             async with httpx.AsyncClient(timeout=30.0) as client:
                 response = await client.post(url, headers=headers, json=payload)
+                if response.status_code != 200:
+                    print(f"Grok API Error Response: {response.status_code} - {response.text}")
                 response.raise_for_status()
                 data = response.json()
                 
-                # チャット完了のコンテンツをパース
                 content = data["choices"][0]["message"]["content"]
                 import json
                 return json.loads(content)
         except Exception as e:
-            print(f"Grok API Error: {e}")
+            print(f"Grok API Exception: {e}")
             return self._mock_analysis(f"{departure} → {arrival}")
 
     async def _call_openai_api(
@@ -160,5 +146,4 @@ class LLMClient:
         raw_data: Optional[RawFlightData] = None
     ) -> dict:
         """OpenAI API を呼び出し"""
-        # フォールバック用。必要に応じて実装
         return self._mock_analysis(f"{departure} → {arrival}")
