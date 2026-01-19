@@ -51,10 +51,10 @@ GROK_API_KEY=your_actual_grok_api_key_here
 ### 4. ローカルで実行
 
 ```bash
-uvicorn app.main:app --reload
+python3 scripts/run.py
 ```
 
-http://localhost:8000 でアクセスできます。
+自動的に空いているポートを探して起動します（デフォルトでは http://localhost:8000 から試行します）。
 
 ## Vercel へのデプロイ
 
