@@ -1,0 +1,38 @@
+{% if error %}
+<div class="card">
+    <div class="error">
+        <strong>エラー:</strong> {{ error }}
+    </div>
+</div>
+{% elif result %}
+<div class="card result-container">
+    <div class="result-header">
+        <h2>分析結果</h2>
+        <p class="route">{{ result.route }}</p>
+    </div>
+
+    <div class="options-section">
+        <h3>隠れた格安オプション</h3>
+
+        {% for option in result.hidden_options %}
+        <div class="option-card">
+            <div class="option-route">{{ option.route }}</div>
+            <div class="option-details">
+                <span class="price">{{ option.price }}</span>
+                <span class="save">{{ option.save }} 節約</span>
+            </div>
+            {% if option.tips %}
+            <div class="option-tips">💡 {{ option.tips }}</div>
+            {% endif %}
+        </div>
+        {% endfor %}
+    </div>
+
+    <div class="tips-section">
+        <h3>価格操作回避のヒント</h3>
+        <div class="tips-content">
+            {{ result.avoid_tips|safe }}
+        </div>
+    </div>
+</div>
+{% endif %}
