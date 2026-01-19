@@ -1,9 +1,6 @@
-"""
-フライト分析サービス
-ビジネスロジックを処理するサービス層
-"""
 from app.clients.llm_client import LLMClient
-from app.models.schemas import FlightAnalysisResponse, HiddenFlightOption
+from app.clients.flight_data_client import FlightDataClient
+from app.models.schemas import FlightAnalysisResponse, HiddenFlightOption, RawFlightData
 from typing import Optional
 
 
@@ -12,6 +9,7 @@ class FlightAnalyzerService:
     
     def __init__(self):
         self.llm_client = LLMClient()
+        self.flight_data_client = FlightDataClient()
     
     async def analyze_route(
         self, 
@@ -30,12 +28,17 @@ class FlightAnalyzerService:
         Returns:
             FlightAnalysisResponse
         """
-        # LLM に分析を依頼
-        result = await self.llm_client.analyze_flight_route(
+        # 1. 実際のフライトデータを取得
+        raw_data = await self.flight_data_client.get_flight_offers(
             departure, arrival, date
         )
+
+        # 2. LLM に分析を依頼（実データを渡す）
+        result = await self.llm_client.analyze_flight_route(
+            departure, arrival, date, raw_data=raw_data
+        )
         
-        # レスポンスを構築
+        # 3. レスポンスを構築
         route_str = f"{departure} → {arrival}"
         if date:
             route_str += f" ({date})"
@@ -47,5 +50,6 @@ class FlightAnalyzerService:
         return FlightAnalysisResponse(
             route=route_str,
             hidden_options=hidden_options,
-            avoid_tips=result.get("avoid_tips", "")
+            avoid_tips=result.get("avoid_tips", ""),
+            raw_data=raw_data
         )

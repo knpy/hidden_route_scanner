@@ -20,9 +20,9 @@
         <p class="route">{{ result.route }}</p>
     </div>
 
+    <!-- AI による分析セクション -->
     <div class="options-section">
-        <h3>隠れた格安オプション</h3>
-
+        <h3>AI が見つけた隠れたルート</h3>
         {% for option in result.hidden_options %}
         <div class="option-card">
             <div class="option-route">{{ option.route }}</div>
@@ -36,6 +36,35 @@
         </div>
         {% endfor %}
     </div>
+
+    <!-- 実際のフライトデータセクション -->
+    {% if result.raw_data and result.raw_data.offers %}
+    <div class="real-flights-section"
+        style="margin-top: 2rem; border-top: 1px solid var(--border-color); padding-top: 1.5rem;">
+        <h3 style="color: var(--text-primary); margin-bottom: 1rem;">実際の最安値・候補フライト</h3>
+        <div style="display: grid; gap: 1rem;">
+            {% for offer in result.raw_data.offers %}
+            <div
+                style="background: rgba(255, 255, 255, 0.05); padding: 1rem; border-radius: 8px; display: flex; justify-content: space-between; align-items: center;">
+                <div>
+                    <div style="font-weight: 600;">{{ offer.airline }} ({{ offer.flight_number }})</div>
+                    <div style="font-size: 0.85rem; color: var(--text-secondary);">{{ offer.departure_time }} → {{
+                        offer.arrival_time }}</div>
+                </div>
+                <div style="text-align: right;">
+                    <div style="color: var(--success); font-weight: 700;">{{ offer.price }} {{ offer.currency }}</div>
+                    {% if offer.booking_link %}
+                    <a href="{{ offer.booking_link }}" target="_blank"
+                        style="font-size: 0.75rem; color: var(--accent-primary); text-decoration: none; border-bottom: 1px solid var(--accent-primary);">予約サイトへ</a>
+                    {% endif %}
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+        <p style="font-size: 0.7rem; color: var(--text-secondary); margin-top: 0.8rem; font-style: italic;">Powered by
+            {{ result.raw_data.source }}</p>
+    </div>
+    {% endif %}
 
     <div class="tips-section">
         <h3>価格操作回避のヒント</h3>
