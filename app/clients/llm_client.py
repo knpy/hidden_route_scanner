@@ -16,7 +16,12 @@ class LLMClient:
     def __init__(self):
         self.grok_api_key = os.getenv("GROK_API_KEY")
         self.openai_api_key = os.getenv("OPENAI_API_KEY")
-        self.use_mock = not (self.grok_api_key or self.openai_api_key)
+        
+        # プレースホルダーのチェック
+        is_grok_valid = self.grok_api_key and "your_grok" not in self.grok_api_key
+        is_openai_valid = self.openai_api_key and "your_openai" not in self.openai_api_key
+        
+        self.use_mock = not (is_grok_valid or is_openai_valid)
         
     async def analyze_flight_route(
         self, 
@@ -88,10 +93,55 @@ class LLMClient:
         date: Optional[str]
     ) -> dict:
         """Grok API を呼び出し"""
-        # TODO: Grok API の実装
-        # 現在はモックを返す
-        return self._mock_analysis(f"{departure} → {arrival}")
-    
+        url = "https://api.x.ai/v1/chat/completions"
+        headers = {
+            "Authorization": f"Bearer {self.grok_api_key}",
+            "Content-Type": "application/json"
+        }
+        
+        system_prompt = (
+            "あなたは航空券の専門家です。ユーザーのルートに対して、隠れた格安オプションを提案してください。"
+            "特に以下の手法を検討してください：\n"
+            "1. Hidden City チケット (最終目的地を越えた航空券を予約し、経由地で降りる)\n"
+            "2. 複数航空券の組み合わせ (Self-transfer)\n"
+            "3. 近くの代替空港の利用\n"
+            "4. 曜日や時間帯の最適化\n\n"
+            "レスポンスは必ず以下のJSON形式で返してください：\n"
+            "{\n"
+            "  \"hidden_options\": [\n"
+            "    {\"route\": \"説明\", \"price\": \"価格\", \"save\": \"節約率%\", \"tips\": \"アドバイス\"}\n"
+            "  ],\n"
+            "  \"avoid_tips\": \"価格操作を避けるための詳細なアドバイス（マークダウン形式）\"\n"
+            "}"
+        )
+        
+        user_prompt = f"出発地: {departure}, 目的地: {arrival}"
+        if date:
+            user_prompt += f", 日程: {date}"
+        
+        payload = {
+            "model": "grok-beta",
+            "messages": [
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": user_prompt}
+            ],
+            "response_format": {"type": "json_object"}
+        }
+        
+        try:
+            async with httpx.AsyncClient(timeout=30.0) as client:
+                response = await client.post(url, headers=headers, json=payload)
+                response.raise_for_status()
+                data = response.json()
+                
+                # チャット完了のコンテンツをパース
+                content = data["choices"][0]["message"]["content"]
+                import json
+                return json.loads(content)
+        except Exception as e:
+            print(f"Grok API Error: {e}")
+            return self._mock_analysis(f"{departure} → {arrival}")
+
     async def _call_openai_api(
         self, 
         departure: str, 
@@ -99,6 +149,5 @@ class LLMClient:
         date: Optional[str]
     ) -> dict:
         """OpenAI API を呼び出し"""
-        # TODO: OpenAI API の実装
-        # 現在はモックを返す
+        # フォールバック用。必要に応じて実装
         return self._mock_analysis(f"{departure} → {arrival}")
