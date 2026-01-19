@@ -1,3 +1,12 @@
+{% if warning %}
+<div class="card" style="border-color: var(--warning); background: rgba(245, 158, 11, 0.1); margin-bottom: 1rem;">
+    <div style="color: var(--warning); display: flex; align-items: center; gap: 0.5rem; padding: 1rem;">
+        <span>⚠️</span>
+        <span>{{ warning }}</span>
+    </div>
+</div>
+{% endif %}
+
 {% if error %}
 <div class="card">
     <div class="error">

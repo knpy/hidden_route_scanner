@@ -12,12 +12,18 @@
 
             <div class="form-group">
                 <label for="departure">出発地 🛫</label>
-                <input type="text" id="departure" name="departure" placeholder="例: 東京" required>
+                <input type="text" id="departure" name="departure" placeholder="例: 東京" list="departure-list"
+                    hx-get="/search-airports" hx-trigger="keyup changed delay:300ms" hx-target="#departure-list"
+                    autocomplete="off" required>
+                <datalist id="departure-list"></datalist>
             </div>
 
             <div class="form-group">
                 <label for="arrival">目的地 🛬</label>
-                <input type="text" id="arrival" name="arrival" placeholder="例: ロンドン" required>
+                <input type="text" id="arrival" name="arrival" placeholder="例: ロンドン" list="arrival-list"
+                    hx-get="/search-airports" hx-trigger="keyup changed delay:300ms" hx-target="#arrival-list"
+                    autocomplete="off" required>
+                <datalist id="arrival-list"></datalist>
             </div>
 
             <div class="form-group">
