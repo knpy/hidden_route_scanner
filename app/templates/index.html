@@ -1,0 +1,38 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container">
+    <header>
+        <h1>✈️ Flight Optimizer AI</h1>
+        <p class="tagline">隠れた格安航空券を見つけ出す AI ツール</p>
+    </header>
+
+    <div class="card">
+        <form hx-post="/analyze" hx-target="#result" hx-swap="innerHTML" hx-indicator=".card">
+
+            <div class="form-group">
+                <label for="departure">出発地 🛫</label>
+                <input type="text" id="departure" name="departure" placeholder="例: 東京" required>
+            </div>
+
+            <div class="form-group">
+                <label for="arrival">目的地 🛬</label>
+                <input type="text" id="arrival" name="arrival" placeholder="例: ロンドン" required>
+            </div>
+
+            <div class="form-group">
+                <label for="date">日程（オプション）📅</label>
+                <input type="date" id="date" name="date">
+            </div>
+
+            <button type="submit">
+                分析を開始 🔍
+            </button>
+        </form>
+    </div>
+
+    <div id="result">
+        <!-- 分析結果がここに表示されます -->
+    </div>
+</div>
+{% endblock %}
